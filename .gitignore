@@ -1,0 +1,25 @@
+.settings/
+.classpath
+.project
+*/bin
+.idea/
+*.iws
+*.ipr
+*.iml
+*.wpu
+# maven build directories
+target/
+# mac files
+*.DS_Store
+*.sublime-*
+*.log*
+infinitest.filters
+.metadata
+.recommenders
+nbproject/
+nbactions.xml
+*.log.*
+.factorypath
+.flattened-pom.xml
+nb-configuration.xml
+*.txt
