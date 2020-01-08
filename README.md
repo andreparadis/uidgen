@@ -1,20 +1,20 @@
 # UID API
 
-A proof of concept micro service used to generate unique IDs in a given 
+A proof of concept microservice used to generate unique IDs in a given 
 infrastructure.
 
 ## Description
 
-The service provide a simple REST api endpoint that accept a namespace, and return an ID guaranteed 
-to be unique within that namespace. Two generators are provided:
+The service provides a simple REST API endpoint that accepts a namespace, and returns an ID 
+guaranteed to be unique within that namespace. Two generators are provided:
 
-1) Twitter snowflake inspired generator
+1) Twitter snowflake-inspired generator
 2) UUID v4 based generator
 
 The implementation defaults to Snowflake, but can be swapped to UUID v4 generator with a 
 configuration change.
 
-In order to maximize generation speed and minimize storage requirement, no attempt is made to 
+To maximize ID generation speed and minimize storage requirements, no attempt is made to 
 persist these IDs to validate uniqueness. Uniqueness is guaranteed by the nature of each generator.
 
 The namespace accepted must be between 1 and 50 characters in the range [a-zA-Z0-9_].
@@ -62,23 +62,67 @@ content-type: application/json
 }
 ```
 
+CORS Preflight request
+
+You can validate your CORS configuration (see CORS_ORIGIN_REGEX config value) 
+using this preflight request sample:
+
+    curl -H "Origin: http://survata.com" \
+      -H "Access-Control-Request-Method: GET" \
+      -H "Access-Control-Request-Headers: X-Requested-With" \
+      -X OPTIONS --verbose \
+      http://localhost:9999/uidapi/v1/uid/xx 
+
+    > OPTIONS /uidapi/v1/uid/xx HTTP/1.1
+    > Host: localhost:7777
+    > User-Agent: curl/7.64.1
+    > Accept: */*
+    > Origin: http://survata.com
+    > Access-Control-Request-Method: GET
+    > Access-Control-Request-Headers: X-Requested-With
+    >
+    < HTTP/1.1 200 OK
+    < access-control-allow-origin: http://survata.com
+    < access-control-allow-methods: GET
+    < access-control-allow-headers: Access-Control-Allow-Origin,origin,x-requested-with,Content-Type,accept
+    < content-length: 0
+    
+Invalid CORS request (Wrong method):
+
+    curl -H "Origin: http://www.survata.com" \
+      -H "Access-Control-Request-Method: POST" \
+      -H "Access-Control-Request-Headers: X-Requested-With" \
+      -X OPTIONS --verbose \
+      http://localhost:9999/uidapi/v1/uid/xx
+      
+      > OPTIONS /uidapi/v1/uid/xx HTTP/1.1
+      > Host: localhost:7777
+      > User-Agent: curl/7.64.1
+      > Accept: */*
+      > Origin: http://www.survata.com
+      > Access-Control-Request-Method: POST
+      > Access-Control-Request-Headers: X-Requested-With
+      >
+      < HTTP/1.1 403 CORS Rejected - Invalid origin
+      < content-length: 0
+
 ## Pros and Cons
 
 ### Snowflake
 
-Snowflake is the fastest of both generators. Generation of a unique ID is based on a time component,
+Snowflake is the fastest of both generators. The generation of a unique ID is based on a time component,
 a sequence id and a worker id. These components are merged together in a 64 bits integer using 
 the following bit pattern:
 
 | Time (42 bits) | Worker id (10 bits) | Sequence id (12 bits) |
 
 This integer is converted to an unsigned long string representation and prefixed by the namespace 
-provided before being returned in th response.
+provided before being returned in the response.
 
-The time component is in milli seconds relative to a fixed recent epoch (01/01/2020 00:00:00Z) in 
-order to maximize usefulness of the bits. The sequence id is used in case generation of two 
+The time component is in milliseconds relative to a fixed recent epoch (01/01/2020 00:00:00Z) in 
+order to maximize the usage of the 42 bits. The sequence id is used in case the generation of two 
 consecutive IDs is inside the same millisecond. In that case, the sequence is incremented by 1 for 
-each collisions, and reset to 0 when a generation occurs a milliseconds or more later. 12 bits of 
+each collision, and reset to 0 when a generation occurs a millisecond or more later. 12 bits of 
 sequence allows for 4096 IDs generated in 1 ms for a single generator. In the event this sequence 
 max value is reached, a busy loop will wait to the next millisecond to reset the sequence and return
 a new ID.
@@ -92,8 +136,8 @@ IDs are also unique within one infrastructure and not globally unique.
 ID generation is fast, and the nature of the id make it so that they are generated roughly in order 
 and are thus minimizing index maintenance when used as keys.  
 
-The snowflake generator does not use synchronized block as each generator instance is 
-guaranteed to be used from a single thread at a time by vertx. This lead to highly concurrent 
+The snowflake generator does not use a synchronized block as each generator instance is 
+guaranteed to be used from a single thread at a time by vertx. This lead to a highly concurrent 
 non-blocking approach. 
 
 ### UUID v4
@@ -101,7 +145,7 @@ non-blocking approach.
 The UUID v4 based generator is quite simple. It delegates ID generation to Java's UUID v4 
 implementation. Although they are globally unique in nature, they make use of a secure 
 random number generator accessed in a synchronized fashion, leading to contention in 
-multi-threaded context.
+a multi-threaded context.
 
 ## Frameworks used
 
@@ -149,4 +193,16 @@ To use UUIDv4 generator instead of Snowflake, override `UID_GENERATOR`:
     export UID_GENERATOR=uuid
     export SERVER_PORT=7777
     java -jar ./web/target/web-1.0.0-fat.jar
+    
+## Future Work
+
+Some elements that could benefit the solution:
+
+- Profile code to see if some optimization can be performed
+- Tune garbage collection for this specific workload in order minimize pauses under high load
+- Investigate best ways to assign unique worker id to workers (default sequence id store is naive)
+- Add custom metrics and health checks
+
+
+ 
 
