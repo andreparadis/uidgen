@@ -11,6 +11,9 @@ import io.vertx.ext.web.handler.LoggerHandler;
 import io.vertx.ext.web.handler.ResponseContentTypeHandler;
 import io.vertx.ext.web.handler.ResponseTimeHandler;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import lombok.NonNull;
 
 import com.ap.uidgen.web.ApiConfiguration.ConfigurationKeys;
@@ -62,10 +65,17 @@ public class ApiVerticle extends AbstractVerticle {
     Router router = Router.router(vertx);
 
     // configure cors support
+    Set<String> allowedHeaders = new HashSet<>();
+    allowedHeaders.add("x-requested-with");
+    allowedHeaders.add("Access-Control-Allow-Origin");
+    allowedHeaders.add("origin");
+    allowedHeaders.add("Content-Type");
+    allowedHeaders.add("accept");
     final String originRegex = config().getString(ConfigurationKeys.CORS_ORIGIN_REGEX.toString());
     router.route().handler(
         CorsHandler
             .create(originRegex)
+            .allowedHeaders(allowedHeaders)
             .allowedMethod(HttpMethod.GET));
 
     // log all requests
